@@ -159,5 +159,9 @@ def test_config_anything_get():
 
 
 @pytest.fixture(scope="class")
+def test_conf_pet_post():
+    return client.RequestClient().post_req(f"{URLS}/pet/1",headers=HEADERS,form_data={'name':'tomy001', 'status':'ok'})
+
+@pytest.fixture(scope="class")
 def test_conf_pet_get():
-    return client.RequestClient().get_req(f"{URLS}/pet/1")
+    return client.RequestClient().get_req(f"{URLS}/pet/1",headers=HEADERS)

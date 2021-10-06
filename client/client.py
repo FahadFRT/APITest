@@ -11,3 +11,14 @@ class RequestClient:
             pass
         response = SESSION.get(url, headers=HEADERS, auth=auth)
         return response
+
+
+    def post_req(self, url, headers=None, auth=(None, None), Authorization=None, qop=None, algorithm=None,
+                stale_after=None, Accept=None, IF_MODIFIED_SINCE=None, IF_NONE_MATCH="test", CONTENT_TYPE=None,
+                path_params=None, form_data=None, file=None):
+        if auth == (None, None):
+            auth = None
+        else:
+            pass
+        response = SESSION.post(url, headers=HEADERS, auth=auth, form_data=form_data)
+        return response

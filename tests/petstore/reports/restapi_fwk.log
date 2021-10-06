@@ -1,0 +1,2 @@
+""2021-10-06 18:48:23" DEBUG Starting new HTTPS connection (1): petstore.swagger.io"
+""2021-10-06 18:48:24" DEBUG https://petstore.swagger.io:443 "GET /v2/pet/1 HTTP/1.1" 200 None"
