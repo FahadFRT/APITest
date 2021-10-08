@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>testng-results.html</h1>
+    <p>Report generated on 08-Oct-2021 at 12:41:29 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.10.0", "pytest": "6.2.5"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-4.15.0-159-generic-x86_64-with-Ubuntu-18.04-bionic</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "1.11.0"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.6.9</td></tr></table>
+    <h2>Summary</h2>
+    <p>18 tests ran in 7.23 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">17 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">1 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="error results-table-row">
+        <tr>
+          <td class="col-result">Error</td>
+          <td class="col-name">petstore/test_pet.py::test_pet_post::setup</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">@pytest.fixture(scope=&quot;class&quot;)<br/>    def test_conf_pet_post():<br/>&gt;       return client.RequestClient().post_req(f&quot;{URLS}/pet/1&quot;,headers=HEADERS,form_data={&#x27;name&#x27;:&#x27;tomy001&#x27;, &#x27;status&#x27;:&#x27;ok&#x27;})<br/><br/>tests/conftest.py:163: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/>client/client.py:23: in post_req<br/>    response = SESSION.post(url, headers=HEADERS, auth=auth, form_data=form_data)<br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;requests.sessions.Session object at 0x7fe511333f28&gt;, url = &#x27;https://petstore.swagger.io/v2/pet/1&#x27;, data = None, json = None<br/>kwargs = {&#x27;auth&#x27;: None, &#x27;form_data&#x27;: {&#x27;name&#x27;: &#x27;tomy001&#x27;, &#x27;status&#x27;: &#x27;ok&#x27;}, &#x27;headers&#x27;: {&#x27;qop&#x27;: &#x27;auth&#x27;, &#x27;algorithm&#x27;: &#x27;MD5&#x27;, &#x27;stale...im33maIdijvS8PSUH3zXxy7KyM&#x27;, &#x27;If-Modified-Since&#x27;: &#x27;test&#x27;, &#x27;IF-None-MATCH&#x27;: &#x27;test&#x27;, &#x27;Content-Type&#x27;: &#x27;application/json&#x27;}}<br/><br/>    def post(self, url, data=None, json=None, **kwargs):<br/>        r&quot;&quot;&quot;Sends a POST request. Returns :class:`Response` object.<br/>    <br/>        :param url: URL for the new :class:`Request` object.<br/>        :param data: (optional) Dictionary, bytes, or file-like object to send in the body of the :class:`Request`.<br/>        :param json: (optional) json to send in the body of the :class:`Request`.<br/>        :param \*\*kwargs: Optional arguments that ``request`` takes.<br/>        :rtype: requests.Response<br/>        &quot;&quot;&quot;<br/>    <br/>&gt;       return self.request(&#x27;POST&#x27;, url, data=data, json=json, **kwargs)<br/><span class="error">E       TypeError: request() got an unexpected keyword argument &#x27;form_data&#x27;</span><br/><br/>/usr/lib/python3/dist-packages/requests/sessions.py:567: TypeError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">petstore/test_pet.py::test_pet_get</td>
+          <td class="col-duration">1.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">test_conf_pet_get = &lt;Response [200]&gt;<br/><br/>    @pytest.mark.run(order=2)<br/>    def test_pet_get(test_conf_pet_get):<br/>&gt;       assert test_conf_pet_get.json()[&#x27;name&#x27;] == &quot;pet001&quot;<br/><span class="error">E       AssertionError: assert &#x27;doggie&#x27; == &#x27;pet001&#x27;</span><br/><span class="error">E         - pet001</span><br/><span class="error">E         + doggie</span><br/><br/>tests/petstore/test_pet.py:12: AssertionError<br/> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:826 Starting new HTTPS connection (1): petstore.swagger.io
+DEBUG    urllib3.connectionpool:connectionpool.py:396 https://petstore.swagger.io:443 &quot;GET /v2/pet/1 HTTP/1.1&quot; 200 None<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_anything.py::test_anything_get</td>
+          <td class="col-duration">0.93</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:826 Starting new HTTPS connection (1): httpbin.org
+DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /anything HTTP/1.1&quot; 200 973<br/> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;args&#x27;: {}, &#x27;data&#x27;: &#x27;&#x27;, &#x27;files&#x27;: {}, &#x27;form&#x27;: {}, &#x27;headers&#x27;: {&#x27;Accept&#x27;: &#x27;application/json&#x27;, &#x27;Accept-Encoding&#x27;: &#x27;gzip, deflate&#x27;, &#x27;Algorithm&#x27;: &#x27;MD5&#x27;, &#x27;Authorization&#x27;: &#x27;Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjMzMDAwNTg4LCJqdGkiOiI4YTdiMzhlY2JjMTI0NTZlOTgzYzlhYTEzZDFhOGJjNCIsInVzZXJfaWQiOjI3MzMsImZpcnN0X25hbWUiOiJ4bG5rIiwibGFzdF9uYW1lIjoibG9hZDI3NTAiLCJ2aXNpdF9sb2dzIjoyLCJkYXRlX2pvaW5lZCI6IjIwMjEtMDgtMzAgMTI6MDc6MTMuODExOTk4KzAwOjAwIn0.qU4VE9-AiidDi92IOim33maIdijvS8PSUH3zXxy7KyM&#x27;, &#x27;Content-Type&#x27;: &#x27;application/json&#x27;, &#x27;Host&#x27;: &#x27;httpbin.org&#x27;, &#x27;If-Modified-Since&#x27;: &#x27;test&#x27;, &#x27;If-None-Match&#x27;: &#x27;test&#x27;, &#x27;Qop&#x27;: &#x27;auth&#x27;, &#x27;Stale-After&#x27;: &#x27;never&#x27;, &#x27;User-Agent&#x27;: &#x27;python-requests/2.18.4&#x27;, &#x27;X-Amzn-Trace-Id&#x27;: &#x27;Root=1-615ff623-499f3e3241dcf4394cc7100b&#x27;}, &#x27;json&#x27;: None, &#x27;method&#x27;: &#x27;GET&#x27;, &#x27;origin&#x27;: &#x27;110.37.205.206&#x27;, &#x27;url&#x27;: &#x27;https://httpbin.org/anything&#x27;}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_auth.py::test_basic_auth</td>
+          <td class="col-duration">0.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /basic-auth/fahad/my_pass HTTP/1.1&quot; 200 48<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_auth.py::test_bearer_auth</td>
+          <td class="col-duration">0.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /bearer HTTP/1.1&quot; 200 396<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_auth.py::test_digest_auth_qop</td>
+          <td class="col-duration">0.45</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /digest-auth/auth/fahad/my_pass HTTP/1.1&quot; 401 0
+DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /digest-auth/auth/fahad/my_pass HTTP/1.1&quot; 200 48<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_auth.py::test_digest_auth_qop_algo</td>
+          <td class="col-duration">0.45</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /digest-auth/auth/fahad/my_pass/MD5 HTTP/1.1&quot; 401 0
+DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /digest-auth/auth/fahad/my_pass/MD5 HTTP/1.1&quot; 200 48<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_auth.py::test_digest_auth_qop_algo_stale</td>
+          <td class="col-duration">0.45</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /digest-auth/auth/fahad/my_pass/MD5/never HTTP/1.1&quot; 401 0
+DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /digest-auth/auth/fahad/my_pass/MD5/never HTTP/1.1&quot; 200 48<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_auth.py::test_hidden_basic_auth</td>
+          <td class="col-duration">0.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /hidden-basic-auth/fahad/my_pass HTTP/1.1&quot; 200 48<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_cookies.py::test_cookie_getdata</td>
+          <td class="col-duration">0.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /cookies HTTP/1.1&quot; 200 77<br/> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;cookies&#x27;: {&#x27;fake&#x27;: &#x27;fake_value&#x27;, &#x27;stale_after&#x27;: &#x27;never&#x27;}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_cookies.py::test_cookie_set</td>
+          <td class="col-duration">0.45</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /cookies/set?freeform=testingForm HTTP/1.1&quot; 302 223
+DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /cookies HTTP/1.1&quot; 200 109<br/> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;cookies&#x27;: {&#x27;fake&#x27;: &#x27;fake_value&#x27;, &#x27;freeform&#x27;: &#x27;testingForm&#x27;, &#x27;stale_after&#x27;: &#x27;never&#x27;}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_cookies.py::test_cookie_set_name_value</td>
+          <td class="col-duration">0.44</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /cookies/set/Site/google.com HTTP/1.1&quot; 302 223
+DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /cookies HTTP/1.1&quot; 200 136<br/> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;cookies&#x27;: {&#x27;Site&#x27;: &#x27;google.com&#x27;, &#x27;fake&#x27;: &#x27;fake_value&#x27;, &#x27;freeform&#x27;: &#x27;testingForm&#x27;, &#x27;stale_after&#x27;: &#x27;never&#x27;}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_cookies.py::test_cookie_delete</td>
+          <td class="col-duration">0.45</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /cookies/delete?freeform=unknown HTTP/1.1&quot; 302 223
+DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /cookies HTTP/1.1&quot; 200 104<br/> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;cookies&#x27;: {&#x27;Site&#x27;: &#x27;google.com&#x27;, &#x27;fake&#x27;: &#x27;fake_value&#x27;, &#x27;stale_after&#x27;: &#x27;never&#x27;}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_dynamic_data.py::test_dynamic_data_decode_base64string</td>
+          <td class="col-duration">0.23</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /base64/SFRUUEJJTiBpcyBhd2Vzb21l HTTP/1.1&quot; 200 18<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_image.py::test_image_get</td>
+          <td class="col-duration">0.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /image/webp HTTP/1.1&quot; 200 10568<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_reponse_inspection.py::test_response_inspection_modification_check</td>
+          <td class="col-duration">0.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /cache HTTP/1.1&quot; 304 0<br/> ------------------------------Captured stdout call------------------------------ <br/>
+
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_request_Inspection.py::test_getting_header</td>
+          <td class="col-duration">0.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /headers HTTP/1.1&quot; 200 872<br/> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;headers&#x27;: {&#x27;Accept&#x27;: &#x27;application/json&#x27;, &#x27;Accept-Encoding&#x27;: &#x27;gzip, deflate&#x27;, &#x27;Algorithm&#x27;: &#x27;MD5&#x27;, &#x27;Authorization&#x27;: &#x27;Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjMzMDAwNTg4LCJqdGkiOiI4YTdiMzhlY2JjMTI0NTZlOTgzYzlhYTEzZDFhOGJjNCIsInVzZXJfaWQiOjI3MzMsImZpcnN0X25hbWUiOiJ4bG5rIiwibGFzdF9uYW1lIjoibG9hZDI3NTAiLCJ2aXNpdF9sb2dzIjoyLCJkYXRlX2pvaW5lZCI6IjIwMjEtMDgtMzAgMTI6MDc6MTMuODExOTk4KzAwOjAwIn0.qU4VE9-AiidDi92IOim33maIdijvS8PSUH3zXxy7KyM&#x27;, &#x27;Content-Type&#x27;: &#x27;application/json&#x27;, &#x27;Cookie&#x27;: &#x27;Site=google.com; fake=fake_value; stale_after=never&#x27;, &#x27;Host&#x27;: &#x27;httpbin.org&#x27;, &#x27;If-Modified-Since&#x27;: &#x27;test&#x27;, &#x27;If-None-Match&#x27;: &#x27;test&#x27;, &#x27;Qop&#x27;: &#x27;auth&#x27;, &#x27;Stale-After&#x27;: &#x27;never&#x27;, &#x27;User-Agent&#x27;: &#x27;python-requests/2.18.4&#x27;, &#x27;X-Amzn-Trace-Id&#x27;: &#x27;Root=1-615ff628-7b2a7bd82daa64096bad28b2&#x27;}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_request_Inspection.py::test_getting_useragent</td>
+          <td class="col-duration">0.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /ip HTTP/1.1&quot; 200 33<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">simple/test_request_Inspection.py::test_getting_ip</td>
+          <td class="col-duration">0.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log setup------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:396 https://httpbin.org:443 &quot;GET /user-agent HTTP/1.1&quot; 200 45<br/></div></td></tr></tbody></table></body></html>
