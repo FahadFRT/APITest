@@ -20,9 +20,9 @@
 # print(g, soup.prettify())
 # g.close()
 
-import lxml
-from lxml import html, etree
-
-doc = html.fromstring(open('/home/muhammad/PycharmProjects/APITesting/reports/testng-results.html').read())
-out = open('/home/muhammad/PycharmProjects/APITesting/reports/testng-results.xml', 'wb')
-out.write(etree.tostring(doc))
+# import lxml
+# from lxml import html, etree
+#
+# doc = html.fromstring(open('/home/muhammad/PycharmProjects/APITesting/reports/testng-results.html').read())
+# out = open('/home/muhammad/PycharmProjects/APITesting/reports/testng-results.xml', 'wb')
+# out.write(etree.tostring(doc))
